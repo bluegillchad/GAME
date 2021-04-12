@@ -1,4 +1,5 @@
 #include <iostream>
+#include <fstream>
 #include <SDL.h>
 #include <SDL_image.h>
 #include <SDL_mixer.h>
@@ -164,6 +165,22 @@ struct gameNote
     }
 };
 
+struct gameLyrics
+{
+    std::string lyric;
+    Uint32 entryTime;
+
+    gameLyrics(std::string lyric_, Uint32 entryTime_)
+    {
+        lyric = lyric_;
+        entryTime = entryTime_;
+    }
+
+    gameLyrics()
+    {
+        entryTime = 0;
+    }
+};
 const int guitarX = 134;
 const int scoreX = 500;
 const int scoreY = 300;
@@ -198,6 +215,10 @@ void loadMedia(SDL_Renderer* &renderer);
 void playLevel(const int &level, bool &isQuit, SDL_Renderer* &renderer);
 
 void pause(bool &isQuit, bool &isLevelEnd, bool &isPause, SDL_Renderer* &renderer, Uint32 &pausedTime);
+
+void loadChart(gameNote (&levelChart)[2000] );
+
+void loadLyrics(gameLyrics (&levelLyrics)[150]);
 
 int main(int argc, char* argv[])
 {
@@ -395,7 +416,7 @@ void quitSDL(SDL_Window* &window, SDL_Renderer* &renderer)
 
 void loadMedia(SDL_Renderer* &renderer)
 {
-    scoreFont = TTF_OpenFont("assets/Raleway-Black.ttf", 28);
+    scoreFont = TTF_OpenFont("assets/Raleway-Light.ttf", 28);
     if (scoreFont == NULL)
     {
         logSDLError(std::cout, "Failed to load font!", true, TTF_Err);
@@ -522,27 +543,16 @@ void playLevel(const int &level, bool &isQuit, SDL_Renderer* &renderer)
     Uint32 beginningTime = SDL_GetTicks();
     Uint32 passedTime = 0;
     Uint32 pausedTime = 0;
-    gameNote levelMap[1000];
+    gameNote levelChart[2000];
+    gameLyrics levelLyrics[150];
     gameNote onScreenNotes[50];
     int currentNote = 0;
     int numberOfOnScreenNotes = 0;
+    int currentLyric = 0;
 
     int score = 0;
-
-    levelMap[0].noHold(0);
-    levelMap[0].lane = green;
-    levelMap[1].entryTime = 0;
-    levelMap[1].lane = orange;
-    levelMap[1].heldTime = 1800;
-    levelMap[2].noHold(600);
-    levelMap[2].lane = red;
-    levelMap[3].noHold(1200);
-    levelMap[3].lane = green;
-    levelMap[4].noHold(1800);
-    levelMap[4].lane = red;
-    levelMap[5].noHold(2400);
-    levelMap[5].lane = green;
-    levelMap[6].entryTime = 100000;
+    loadChart(levelChart);
+    loadLyrics(levelLyrics);
 
     // play music
     if (Mix_PlayingMusic() == 0)
@@ -570,9 +580,9 @@ void playLevel(const int &level, bool &isQuit, SDL_Renderer* &renderer)
             guitarTexture.render(renderer);
 
             //renderNotesFromMap(renderer, passedTime)
-            while (SDL_TICKS_PASSED(passedTime, levelMap[currentNote].entryTime))
+            while (SDL_TICKS_PASSED(passedTime, levelChart[currentNote].entryTime))
             {
-                onScreenNotes[numberOfOnScreenNotes] = levelMap[currentNote];
+                onScreenNotes[numberOfOnScreenNotes] = levelChart[currentNote];
                 currentNote++;
                 numberOfOnScreenNotes++;
             }
@@ -643,6 +653,13 @@ void playLevel(const int &level, bool &isQuit, SDL_Renderer* &renderer)
                 }
                 numberOfOnScreenNotes--;
             }
+            if (SDL_TICKS_PASSED(passedTime, levelLyrics[currentLyric].entryTime))
+                {
+                    currentLyric++;
+                }
+            scoreTexture.loadFromRenderedText(levelLyrics[currentLyric - 1].lyric, scoreTextColor, scoreFont, renderer);
+            scoreTexture.posX = 500;
+            scoreTexture.posY = 100;
             scoreTexture.render(renderer);
             SDL_RenderPresent(renderer);
         }
@@ -734,4 +751,56 @@ void pause(bool &isQuit, bool &isLevelEnd, bool &isPause, SDL_Renderer* &rendere
         pausedTime += SDL_GetTicks() - pauseStart;
     }
     else Mix_HaltMusic();
+}
+
+void loadChart(gameNote (&levelChart)[2000] )
+{
+    std::ifstream inFile("assets/LevelOne/Chart.txt");
+    int currentNote = 0;
+    if (inFile)
+    {
+        while (!inFile.eof())
+        {
+            Uint32 entryTime_;
+            int lane_;
+            Uint32 heldTime_;
+            inFile >> entryTime_ >> lane_ >> heldTime_;
+            levelChart[currentNote].entryTime = entryTime_;
+            levelChart[currentNote].lane = lane_;
+            levelChart[currentNote].heldTime = heldTime_;
+            currentNote++;
+        }
+        inFile.close();
+        levelChart[currentNote].entryTime = 100000000;
+    }
+    else
+    {
+        logSDLError(std::cout, "Could not open chart!", true, none);
+    }
+}
+
+void loadLyrics(gameLyrics (&levelLyrics)[150])
+{
+    std::ifstream inFile("assets/LevelOne/Lyrics.txt");
+    int currentLyric = 0;
+    if (inFile)
+    {
+        while (!inFile.eof())
+        {
+            Uint32 entryTime_;
+            std::string lyric_;
+            inFile >> entryTime_;
+            getline(inFile, lyric_);
+            levelLyrics[currentLyric].entryTime = entryTime_;
+            levelLyrics[currentLyric].lyric = lyric_;
+            currentLyric++;
+        }
+        inFile.close();
+        levelLyrics[currentLyric].entryTime = 100000000;
+    }
+    else
+    {
+        logSDLError(std::cout, "Could not open lyrics!", false, none);
+    }
+    //levelLyrics[0].entryTime = 100000000;
 }
