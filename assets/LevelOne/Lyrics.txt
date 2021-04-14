@@ -1,4 +1,54 @@
-0 How much more do you think it takes?
-1000 They're only here to sell you lies, it's no surprise
-2000 'Cause every day I've been waiting for some kind of break
-100000 a
+21500 1 How much more do you think it takes?
+25500 2 They're only here to sell you lies, 
+it's no surprise.
+34500 2 'Cause every day
+I've been waiting for some kind of break.
+38000 1 Searching for permanence.
+40500 1 A place that I can go to make me whole.
+47000 1 But the shadows keep whispering to me.
+54000 1 But the shadows keep whispering to me.
+63500 2 I'm always waiting for the tide 
+to crash through me.
+68000 1 I tremble with every wave.
+72000 1 Make me whole again.
+74500 1 If I let go,
+76700 2 Could I still trust you to 
+be better on your own?
+82500 2 If I let you stay,
+you will ruin everything.
+89500 2 You're making me hate a world,
+so good to me.
+96000 2 If I let you stay,
+you will ruin everything.
+117000 1 When even good times are bittersweet.
+120800 2 And though at times it seems like
+a nightmare on repeat.
+126500 2 All you have to do
+is breathe and know that.
+130000 2 This is our home now,
+you and I will never be alone.
+134000 2 When you fall down,
+take my hand, don't let me go.
+137000 2 This is our home now,
+you and I will never be alone.
+141000 2 When you fall down,
+I am yours to hold.
+146000 2 I'm always waiting for the tide 
+to crash through me.
+150500 1 I tremble with every wave.
+154600 1 Make me whole again.
+156700 1 If I let go,
+159000 2 Could I still trust you to 
+be better on your own?
+165000 2 If I let you stay,
+you will ruin everything.
+171000 2 You're making me hate a world,
+so good to me.
+178500 2 If I let you stay,
+you will ruin everything.
+199000 1 The loneliest dreams appear in open air.
+207000 1 With the sun in my face.
+212000 2 The loneliest dreams I have 
+appear when I'm awake.
+221000 1 With a smile on my face,
+224000 1 I live to kill the ache.

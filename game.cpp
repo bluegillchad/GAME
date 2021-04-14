@@ -167,12 +167,14 @@ struct gameNote
 
 struct gameLyrics
 {
-    std::string lyric;
+    std::string lyricOne;
+    std::string lyricTwo;
     Uint32 entryTime;
 
-    gameLyrics(std::string lyric_, Uint32 entryTime_)
+    gameLyrics(std::string lyricOne_, std::string lyricTwo_, Uint32 entryTime_)
     {
-        lyric = lyric_;
+        lyricOne = lyricOne_;
+        lyricTwo = lyricTwo_;
         entryTime = entryTime_;
     }
 
@@ -181,6 +183,8 @@ struct gameLyrics
         entryTime = 0;
     }
 };
+const int musicPosition = 0;
+const int timeUntilMusicPlays = 3151;
 const int guitarX = 134;
 const int scoreX = 500;
 const int scoreY = 300;
@@ -193,7 +197,7 @@ textureE chooseLevelThreeTexture(0, 0);
 textureE gameNoteTexture;
 textureE holdNotesTexture;
 textureE scoreTexture(scoreX, scoreY);
-SDL_Color scoreTextColor = {255, 255, 255};
+const SDL_Color scoreTextColor = {255, 255, 255};
 SDL_Rect noteClips[5];
 SDL_Rect holdNoteClips[5];
 TTF_Font* scoreFont;
@@ -216,9 +220,11 @@ void playLevel(const int &level, bool &isQuit, SDL_Renderer* &renderer);
 
 void pause(bool &isQuit, bool &isLevelEnd, bool &isPause, SDL_Renderer* &renderer, Uint32 &pausedTime);
 
-void loadChart(gameNote (&levelChart)[2000] );
+void loadChart(gameNote (&levelChart)[2000], Uint32 &musicStart);
 
 void loadLyrics(gameLyrics (&levelLyrics)[150]);
+
+void notePressHandle(const int &lane, gameNote (&onScreenNotes)[50], int &score, int &numberOfOnScreenNotes);
 
 int main(int argc, char* argv[])
 {
@@ -315,7 +321,6 @@ int main(int argc, char* argv[])
                 break;
             }
         }
-
         //Update screen
         SDL_RenderPresent(renderer);
     }
@@ -423,7 +428,7 @@ void loadMedia(SDL_Renderer* &renderer)
     }
     else
     {
-        scoreTexture.loadFromRenderedText("abcdefgh", scoreTextColor, scoreFont, renderer);
+        scoreTexture.loadFromRenderedText(" ", scoreTextColor, scoreFont, renderer);
         if (scoreTexture.texture == NULL)
         {
             logSDLError(std::cout, "Failed to render score!", false, none);
@@ -539,10 +544,12 @@ void playLevel(const int &level, bool &isQuit, SDL_Renderer* &renderer)
 {
     bool isPause = false;
     bool isLevelEnd = false;
+    bool isPlayingMusic = false;
     SDL_Event e;
     Uint32 beginningTime = SDL_GetTicks();
     Uint32 passedTime = 0;
     Uint32 pausedTime = 0;
+    Uint32 musicStart = 0;
     gameNote levelChart[2000];
     gameLyrics levelLyrics[150];
     gameNote onScreenNotes[50];
@@ -551,22 +558,12 @@ void playLevel(const int &level, bool &isQuit, SDL_Renderer* &renderer)
     int currentLyric = 0;
 
     int score = 0;
-    loadChart(levelChart);
+    loadChart(levelChart, musicStart);
     loadLyrics(levelLyrics);
 
-    // play music
-    if (Mix_PlayingMusic() == 0)
-    {
-        switch (level)
-        {
-            case levelChoose1:
-                Mix_PlayMusic(levelOneSong, 1);
-                break;
-        }
-    }
 
     // start level rendering
-    while (!isLevelEnd && !isQuit && Mix_PlayingMusic() != 0)
+    while (!isLevelEnd && !isQuit)
     {
         if (isPause)
         {
@@ -574,7 +571,7 @@ void playLevel(const int &level, bool &isQuit, SDL_Renderer* &renderer)
         }
         else
         {
-            passedTime = SDL_GetTicks() - pausedTime - beginningTime;
+            passedTime = SDL_GetTicks() - pausedTime - beginningTime + musicPosition;
             SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0xFF );
             SDL_RenderClear(renderer);
             guitarTexture.render(renderer);
@@ -653,14 +650,25 @@ void playLevel(const int &level, bool &isQuit, SDL_Renderer* &renderer)
                 }
                 numberOfOnScreenNotes--;
             }
+
             if (SDL_TICKS_PASSED(passedTime, levelLyrics[currentLyric].entryTime))
+            {
+                currentLyric++;
+            }
+            if (currentLyric - 1 >= 0)
+            {
+                scoreTexture.loadFromRenderedText(levelLyrics[currentLyric - 1].lyricOne, scoreTextColor, scoreFont, renderer);
+                scoreTexture.posX = 480;
+                scoreTexture.posY = 100;
+                scoreTexture.render(renderer);
+                if (levelLyrics[currentLyric - 1].lyricTwo != " ")
                 {
-                    currentLyric++;
+                    scoreTexture.loadFromRenderedText(levelLyrics[currentLyric - 1].lyricTwo, scoreTextColor, scoreFont, renderer);
+                    scoreTexture.posX = 480;
+                    scoreTexture.posY = 150;
+                    scoreTexture.render(renderer);
                 }
-            scoreTexture.loadFromRenderedText(levelLyrics[currentLyric - 1].lyric, scoreTextColor, scoreFont, renderer);
-            scoreTexture.posX = 500;
-            scoreTexture.posY = 100;
-            scoreTexture.render(renderer);
+            }
             SDL_RenderPresent(renderer);
         }
         while (SDL_PollEvent(&e) != 0)
@@ -672,7 +680,7 @@ void playLevel(const int &level, bool &isQuit, SDL_Renderer* &renderer)
             }
             else
             {
-                if( e.type == SDL_KEYDOWN )
+                if( e.type == SDL_KEYDOWN && e.key.repeat == 0 )
                 {
                     switch( e.key.keysym.sym )
                     {
@@ -680,31 +688,34 @@ void playLevel(const int &level, bool &isQuit, SDL_Renderer* &renderer)
                             isPause = true;
                             break;
                         case SDLK_a:
-                            int closestNote = -1;
-                            for (int i = 0; i < numberOfOnScreenNotes; i++)
-                            {
-                                if (onScreenNotes[i].lane == green)
-                                {
-                                    closestNote = i;
-                                    break;
-                                }
-                            }
-                            if (closestNote != -1)
-                            {
-                                if (onScreenNotes[closestNote].currentPosY + 24 <= 594 + 24 &&
-                                        onScreenNotes[closestNote].currentPosY + 24 >= 594 - 24)
-                                {
-                                    for (int i = closestNote; i < numberOfOnScreenNotes; i++)
-                                    {
-                                        onScreenNotes[i] = onScreenNotes[i + 1];
-                                    }
-                                    numberOfOnScreenNotes--;
-                                    score += 300;
-                                }
-                            }
+                            notePressHandle(green, onScreenNotes, score, numberOfOnScreenNotes);
+                            break;
+                        case SDLK_w:
+                            notePressHandle(red, onScreenNotes, score, numberOfOnScreenNotes);
+                            break;
+                        case SDLK_e:
+                            notePressHandle(yellow, onScreenNotes, score, numberOfOnScreenNotes);
+                            break;
+                        case SDLK_r:
+                            notePressHandle(blue, onScreenNotes, score, numberOfOnScreenNotes);
+                            break;
+                        case SDLK_t:
+                            notePressHandle(orange, onScreenNotes, score, numberOfOnScreenNotes);
+                            break;
                     }
                 }
             }
+        }
+        if (!isPlayingMusic && SDL_TICKS_PASSED(passedTime, musicStart))
+        {
+            switch (level)
+            {
+                case levelChoose1:
+                    Mix_PlayMusic(levelOneSong, 1);
+                    Mix_SetMusicPosition(musicPosition/1000);
+                    break;
+            }
+            isPlayingMusic = true;
         }
     }
 }
@@ -753,12 +764,13 @@ void pause(bool &isQuit, bool &isLevelEnd, bool &isPause, SDL_Renderer* &rendere
     else Mix_HaltMusic();
 }
 
-void loadChart(gameNote (&levelChart)[2000] )
+void loadChart(gameNote (&levelChart)[2000], Uint32 &musicStart)
 {
     std::ifstream inFile("assets/LevelOne/Chart.txt");
     int currentNote = 0;
     if (inFile)
     {
+        inFile >> musicStart;
         while (!inFile.eof())
         {
             Uint32 entryTime_;
@@ -789,18 +801,57 @@ void loadLyrics(gameLyrics (&levelLyrics)[150])
         {
             Uint32 entryTime_;
             std::string lyric_;
-            inFile >> entryTime_;
-            getline(inFile, lyric_);
-            levelLyrics[currentLyric].entryTime = entryTime_;
-            levelLyrics[currentLyric].lyric = lyric_;
+            int numberOfLines;
+            inFile >> entryTime_ >> numberOfLines;
+            if (numberOfLines == 1) levelLyrics[currentLyric].lyricTwo = " ";
+            for (int i = 1; i <= numberOfLines; i++)
+            {
+                getline(inFile, lyric_);
+                if (i == 1)
+                {
+                    levelLyrics[currentLyric].lyricOne = lyric_;
+                }
+                if (i == 2)
+                {
+                    levelLyrics[currentLyric].lyricTwo = lyric_;
+                }
+            }
+            levelLyrics[currentLyric].entryTime = entryTime_ + timeUntilMusicPlays;
             currentLyric++;
         }
         inFile.close();
         levelLyrics[currentLyric].entryTime = 100000000;
+        levelLyrics[currentLyric].lyricOne = "default text";
+        levelLyrics[currentLyric].lyricTwo = "default text";
     }
     else
     {
         logSDLError(std::cout, "Could not open lyrics!", false, none);
     }
-    //levelLyrics[0].entryTime = 100000000;
+}
+
+void notePressHandle(const int &lane, gameNote (&onScreenNotes)[50], int &score, int &numberOfOnScreenNotes)
+{
+    int closestNote = -1;
+    for (int i = 0; i < numberOfOnScreenNotes; i++)
+    {
+        if (onScreenNotes[i].lane == lane)
+        {
+            closestNote = i;
+            break;
+        }
+    }
+    if (closestNote != -1)
+    {
+        if (onScreenNotes[closestNote].currentPosY + 24 <= 594 + 24 &&
+                onScreenNotes[closestNote].currentPosY + 24 >= 594 - 24)
+        {
+            for (int i = closestNote; i < numberOfOnScreenNotes; i++)
+            {
+                onScreenNotes[i] = onScreenNotes[i + 1];
+            }
+            numberOfOnScreenNotes--;
+            score += 300;
+        }
+    }
 }
