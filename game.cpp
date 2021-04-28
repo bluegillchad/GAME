@@ -186,12 +186,15 @@ struct gameLyrics
     }
 };
 
-const int musicPosition = 0;
-const int timeUntilMusicPlays = 3151;
 const int guitarX = 134;
 const int scoreX = 500;
-const int scoreY = 300;
+const int scoreY = 270;
+const int streakX = 500;
+const int streakY = 400;
 const int buttonY = 568;
+const int multiplierX = 480;
+const int multiplierY = 330;
+const int hitBox = 68;
 textureE playScreenTexture(0, 0);
 textureE pauseTexture(0, 0);
 textureE guitarTexture(guitarX, 0);
@@ -201,17 +204,18 @@ textureE chooseLevelThreeTexture(0, 0);
 textureE gameNoteTexture;
 textureE holdNotesTexture;
 textureE pressedButtonsTexture(0, buttonY);
-textureE lyricTexture;
-textureE scoreTexture(scoreX, scoreY);
-//textureE streakTexture(streakX, streakY);
+textureE textTexture;
 
-const SDL_Color scoreTextColor = {255, 255, 255};
+const SDL_Color textColor = {255, 255, 255}; // white
 SDL_Rect noteClips[5];
 SDL_Rect holdNoteClips[5];
 SDL_Rect pressedButtonsClips[5];
 TTF_Font* scoreFont;
+TTF_Font* multiplierFont;
 
 Mix_Music *levelOneSong;
+
+float speed[10] = {0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1};
 
 const std::string WINDOW_TITLE = "Keyboard Hero";
 
@@ -229,12 +233,12 @@ void playLevel(const int &level, bool &isQuit, SDL_Renderer* &renderer);
 
 void pause(bool &isQuit, bool &isLevelEnd, bool &isPause, SDL_Renderer* &renderer, Uint32 &pausedTime);
 
-void loadChart(gameNote (&levelChart)[2000], Uint32 &musicStart);
+void loadChart(gameNote (&levelChart)[2000], Uint32 &musicStart, char* file, int &noteCount, Uint32 &noMultiplierScore);
 
-void loadLyrics(gameLyrics (&levelLyrics)[150]);
+void loadLyrics(gameLyrics (&levelLyrics)[150], char* file);
 
-void notePressHandle(const int &lane, gameNote (&onScreenNotes)[50], Uint32 &score, int &numberOfOnScreenNotes,
-                     const int &keyRepeat, const int &keyState, const Uint32 &passedTime);
+void notePressHandle(const int &lane, gameNote (&onScreenNotes)[200], Uint32 &score, int &numberOfOnScreenNotes,
+                     const int &keyRepeat, const int &keyState, const Uint32 &passedTime, int &streak, const int &multiplier);
 
 std::string numberToString (const Uint32 &number);
 
@@ -435,19 +439,14 @@ void loadMedia(SDL_Renderer* &renderer)
     scoreFont = TTF_OpenFont("assets/Raleway-Light.ttf", 28);
     if (scoreFont == NULL)
     {
-        logSDLError(std::cout, "Failed to load font!", true, TTF_Err);
+        logSDLError(std::cout, "Failed to load score font!", true, TTF_Err);
     }
     else
     {
-        lyricTexture.loadFromRenderedText(" ", scoreTextColor, scoreFont, renderer);
-        if (lyricTexture.texture == NULL)
+        textTexture.loadFromRenderedText(" ", textColor, scoreFont, renderer);
+        if (textTexture.texture == NULL)
         {
-            logSDLError(std::cout, "Failed to load lyricTexture!", false, none);
-        }
-        scoreTexture.loadFromRenderedText("0", scoreTextColor, scoreFont, renderer);
-        if (scoreTexture.texture == NULL)
-        {
-            logSDLError(std::cout, "Failed to load scoreTexture!", true, none);
+            logSDLError(std::cout, "Failed to load textTexture!", true, none);
         }
     }
 
@@ -594,6 +593,7 @@ void playLevel(const int &level, bool &isQuit, SDL_Renderer* &renderer)
     bool isPlayingMusic = false;
     bool isSongEnd = false;
     bool isButtonPressed[5];
+    bool isStarPower = false;
     SDL_Event e;
     Uint32 beginningTime = SDL_GetTicks();
     Uint32 passedTime = 0;
@@ -601,18 +601,24 @@ void playLevel(const int &level, bool &isQuit, SDL_Renderer* &renderer)
     Uint32 musicStart = 0;
     gameNote levelChart[2000];
     gameLyrics levelLyrics[150];
-    gameNote onScreenNotes[50];
+    gameNote onScreenNotes[200];
     int currentNote = 0;
     int numberOfOnScreenNotes = 0;
     int currentLyric = 0;
+    int streak = 0;
+    int noteCount = 0;
+    Uint32 noMultiplierScore = 0;
+    int multiplier = 1;
+    int notePressedCount = 0;
+    double averageMultiplier = 0;
 
     Uint32 score = 0;
     for (int i = 0; i < 5; i++)
     {
         isButtonPressed[i] = false;
     }
-    loadChart(levelChart, musicStart);
-    loadLyrics(levelLyrics);
+    loadChart(levelChart, musicStart, "assets/LevelOne/Chart.txt", noteCount, noMultiplierScore);
+    loadLyrics(levelLyrics, "assets/LevelOne/Lyrics.txt");
 
     // start level rendering
     while (!isLevelEnd && !isQuit && !isSongEnd)
@@ -623,12 +629,11 @@ void playLevel(const int &level, bool &isQuit, SDL_Renderer* &renderer)
         }
         else
         {
-            passedTime = SDL_GetTicks() - pausedTime - beginningTime + musicPosition;
+            passedTime = SDL_GetTicks() - pausedTime - beginningTime;
             SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0xFF );
             SDL_RenderClear(renderer);
             guitarTexture.render(renderer);
 
-            //renderNotesFromMap(renderer, passedTime)
             while (SDL_TICKS_PASSED(passedTime, levelChart[currentNote].entryTime))
             {
                 onScreenNotes[numberOfOnScreenNotes] = levelChart[currentNote];
@@ -675,7 +680,7 @@ void playLevel(const int &level, bool &isQuit, SDL_Renderer* &renderer)
                 }
 
                 // posY calculation
-                onScreenNotes[i].currentPosY = (passedTime - onScreenNotes[i].entryTime) / 5 - 99;
+                onScreenNotes[i].currentPosY = (passedTime - onScreenNotes[i].entryTime) * speed[1] - 99;
                 gameNoteTexture.posY = onScreenNotes[i].currentPosY;
 
                 // render gem
@@ -687,7 +692,7 @@ void playLevel(const int &level, bool &isQuit, SDL_Renderer* &renderer)
                 // render trail if it is a hold note
                 if (onScreenNotes[i].isHeld)
                 {
-                    if (SDL_TICKS_PASSED(passedTime, onScreenNotes[i].heldTime) && !onScreenNotes[i].heldEndCheck)
+                    if (SDL_TICKS_PASSED(passedTime, onScreenNotes[i].entryTime + onScreenNotes[i].heldTime) && !onScreenNotes[i].heldEndCheck)
                     {
                         onScreenNotes[i].heldLength = gameNoteTexture.posY;
                         onScreenNotes[i].heldEndCheck = true;
@@ -712,10 +717,13 @@ void playLevel(const int &level, bool &isQuit, SDL_Renderer* &renderer)
                         }
                     }
                 }
+
+                //reset streak if missed note
+                if (onScreenNotes[i].currentPosY > 594 && !onScreenNotes[i].pressed) streak = 0;
             }
 
             while ( (!onScreenNotes[0].isHeld && onScreenNotes[0].currentPosY > SCREEN_HEIGHT) ||
-                   (onScreenNotes[0].isHeld && !onScreenNotes[0].pressed && onScreenNotes[0].heldLength > SCREEN_HEIGHT) )
+                   (onScreenNotes[0].isHeld && (onScreenNotes[0].currentPosY - onScreenNotes[0].heldLength) > SCREEN_HEIGHT) )
             {
                 for (int i = 0; i < numberOfOnScreenNotes; i++)
                 {
@@ -724,30 +732,44 @@ void playLevel(const int &level, bool &isQuit, SDL_Renderer* &renderer)
                 numberOfOnScreenNotes--;
             }
 
-            if (SDL_TICKS_PASSED(passedTime, levelLyrics[currentLyric].entryTime + timeUntilMusicPlays))
+            if (SDL_TICKS_PASSED(passedTime, levelLyrics[currentLyric].entryTime + musicStart))
             {
                 currentLyric++;
             }
+
+            //render lyric
             if (currentLyric - 1 >= 0)
             {
-                lyricTexture.loadFromRenderedText(levelLyrics[currentLyric - 1].lyricOne, scoreTextColor, scoreFont, renderer);
-                lyricTexture.posX = 480;
-                lyricTexture.posY = 100;
-                lyricTexture.render(renderer);
+                textTexture.loadFromRenderedText(levelLyrics[currentLyric - 1].lyricOne, textColor, scoreFont, renderer);
+                textTexture.posX = 480;
+                textTexture.posY = 100;
+                textTexture.render(renderer);
                 if (levelLyrics[currentLyric - 1].lyricTwo != " ")
                 {
-                    lyricTexture.loadFromRenderedText(levelLyrics[currentLyric - 1].lyricTwo, scoreTextColor, scoreFont, renderer);
-                    lyricTexture.posX = 480;
-                    lyricTexture.posY = 150;
-                    lyricTexture.render(renderer);
+                    textTexture.loadFromRenderedText(levelLyrics[currentLyric - 1].lyricTwo, textColor, scoreFont, renderer);
+                    textTexture.posX = 480;
+                    textTexture.posY = 150;
+                    textTexture.render(renderer);
                 }
             }
 
             // render score
-            scoreTexture.loadFromRenderedText(numberToString(score), scoreTextColor, scoreFont, renderer);
-            scoreTexture.posX = scoreX;
-            scoreTexture.posY = scoreY;
-            scoreTexture.render(renderer);
+            textTexture.loadFromRenderedText("score: " + numberToString(score), textColor, scoreFont, renderer);
+            textTexture.posX = scoreX;
+            textTexture.posY = scoreY;
+            textTexture.render(renderer);
+
+            // render streak
+            textTexture.loadFromRenderedText("streak: " + numberToString(streak), textColor, scoreFont, renderer);
+            textTexture.posX = streakX;
+            textTexture.posY = streakY;
+            textTexture.render(renderer);
+
+            // render multiplier
+            textTexture.loadFromRenderedText("x " + numberToString(multiplier), textColor, scoreFont, renderer);
+            textTexture.posX = multiplierX;
+            textTexture.posY = multiplierY;
+            textTexture.render(renderer);
 
             // light up button if pressed
             for (int i = 0; i < 5; i++)
@@ -762,6 +784,11 @@ void playLevel(const int &level, bool &isQuit, SDL_Renderer* &renderer)
             }
             SDL_RenderPresent(renderer);
         }
+        if (streak <= 10) multiplier = 1;
+        else if (streak <= 20) multiplier = 2;
+        else if (streak <= 30) multiplier = 3;
+        else multiplier = 4;
+        if (isStarPower) multiplier *= 2;
         while (SDL_PollEvent(&e) != 0)
         {
             //User requests quit
@@ -779,23 +806,23 @@ void playLevel(const int &level, bool &isQuit, SDL_Renderer* &renderer)
                             isPause = true;
                             break;
                         case SDLK_a:
-                            notePressHandle(green, onScreenNotes, score, numberOfOnScreenNotes, e.key.repeat, SDL_KEYDOWN, passedTime);
+                            notePressHandle(green, onScreenNotes, score, numberOfOnScreenNotes, e.key.repeat, SDL_KEYDOWN, passedTime, streak, multiplier);
                             isButtonPressed[green] = true;
                             break;
                         case SDLK_w:
-                            notePressHandle(red, onScreenNotes, score, numberOfOnScreenNotes, e.key.repeat, SDL_KEYDOWN, passedTime);
+                            notePressHandle(red, onScreenNotes, score, numberOfOnScreenNotes, e.key.repeat, SDL_KEYDOWN, passedTime, streak, multiplier);
                             isButtonPressed[red] = true;
                             break;
                         case SDLK_e:
-                            notePressHandle(yellow, onScreenNotes, score, numberOfOnScreenNotes, e.key.repeat, SDL_KEYDOWN, passedTime);
+                            notePressHandle(yellow, onScreenNotes, score, numberOfOnScreenNotes, e.key.repeat, SDL_KEYDOWN, passedTime, streak, multiplier);
                             isButtonPressed[yellow] = true;
                             break;
                         case SDLK_r:
-                            notePressHandle(blue, onScreenNotes, score, numberOfOnScreenNotes, e.key.repeat, SDL_KEYDOWN, passedTime);
+                            notePressHandle(blue, onScreenNotes, score, numberOfOnScreenNotes, e.key.repeat, SDL_KEYDOWN, passedTime, streak, multiplier);
                             isButtonPressed[blue] = true;
                             break;
                         case SDLK_t:
-                            notePressHandle(orange, onScreenNotes, score, numberOfOnScreenNotes, e.key.repeat, SDL_KEYDOWN, passedTime);
+                            notePressHandle(orange, onScreenNotes, score, numberOfOnScreenNotes, e.key.repeat, SDL_KEYDOWN, passedTime, streak, multiplier);
                             isButtonPressed[orange] = true;
                             break;
                     }
@@ -805,23 +832,23 @@ void playLevel(const int &level, bool &isQuit, SDL_Renderer* &renderer)
                     switch( e.key.keysym.sym )
                     {
                         case SDLK_a:
-                            notePressHandle(green, onScreenNotes, score, numberOfOnScreenNotes, e.key.repeat, SDL_KEYUP, passedTime);
+                            notePressHandle(green, onScreenNotes, score, numberOfOnScreenNotes, e.key.repeat, SDL_KEYUP, passedTime, streak, multiplier);
                             isButtonPressed[green] = false;
                             break;
                         case SDLK_w:
-                            notePressHandle(red, onScreenNotes, score, numberOfOnScreenNotes, e.key.repeat, SDL_KEYUP, passedTime);
+                            notePressHandle(red, onScreenNotes, score, numberOfOnScreenNotes, e.key.repeat, SDL_KEYUP, passedTime, streak, multiplier);
                             isButtonPressed[red] = false;
                             break;
                         case SDLK_e:
-                            notePressHandle(yellow, onScreenNotes, score, numberOfOnScreenNotes, e.key.repeat, SDL_KEYUP, passedTime);
+                            notePressHandle(yellow, onScreenNotes, score, numberOfOnScreenNotes, e.key.repeat, SDL_KEYUP, passedTime, streak, multiplier);
                             isButtonPressed[yellow] = false;
                             break;
                         case SDLK_r:
-                            notePressHandle(blue, onScreenNotes, score, numberOfOnScreenNotes, e.key.repeat, SDL_KEYUP, passedTime);
+                            notePressHandle(blue, onScreenNotes, score, numberOfOnScreenNotes, e.key.repeat, SDL_KEYUP, passedTime, streak, multiplier);
                             isButtonPressed[blue] = false;
                             break;
                         case SDLK_t:
-                            notePressHandle(orange, onScreenNotes, score, numberOfOnScreenNotes, e.key.repeat, SDL_KEYUP, passedTime);
+                            notePressHandle(orange, onScreenNotes, score, numberOfOnScreenNotes, e.key.repeat, SDL_KEYUP, passedTime, streak, multiplier);
                             isButtonPressed[orange] = false;
                             break;
                     }
@@ -834,7 +861,7 @@ void playLevel(const int &level, bool &isQuit, SDL_Renderer* &renderer)
             {
                 case levelChoose1:
                     Mix_PlayMusic(levelOneSong, 1);
-                    Mix_SetMusicPosition(musicPosition/1000);
+                    Mix_SetMusicPosition(0);
                     break;
             }
             isPlayingMusic = true;
@@ -844,6 +871,11 @@ void playLevel(const int &level, bool &isQuit, SDL_Renderer* &renderer)
         {
             isSongEnd = true;
         }
+    }
+
+    if (isSongEnd)
+    {
+
     }
 }
 
@@ -891,13 +923,14 @@ void pause(bool &isQuit, bool &isLevelEnd, bool &isPause, SDL_Renderer* &rendere
     else Mix_HaltMusic();
 }
 
-void loadChart(gameNote (&levelChart)[2000], Uint32 &musicStart)
+void loadChart(gameNote (&levelChart)[2000], Uint32 &musicStart, char* file, int &noteCount, Uint32 &noMultiplierScore)
 {
-    std::ifstream inFile("assets/LevelOne/Chart.txt");
+    std::ifstream inFile(file);
     int currentNote = 0;
+    Uint32 sum = 0;
     if (inFile)
     {
-        inFile >> musicStart;
+        inFile >> musicStart >> noMultiplierScore;
         while (!inFile.eof())
         {
             Uint32 entryTime_;
@@ -907,12 +940,21 @@ void loadChart(gameNote (&levelChart)[2000], Uint32 &musicStart)
             levelChart[currentNote].entryTime = entryTime_;
             levelChart[currentNote].lane = lane_;
             levelChart[currentNote].heldTime = heldTime_;
-            if (heldTime_ == 0) levelChart[currentNote].isHeld = false;
-            else levelChart[currentNote].isHeld = true;
+            if (heldTime_ == 0)
+            {
+                levelChart[currentNote].isHeld = false;
+                sum+=50;
+            }
+            else
+            {
+                levelChart[currentNote].isHeld = true;
+                sum+=heldTime_/10;
+            }
             currentNote++;
         }
         inFile.close();
         levelChart[currentNote].entryTime = 100000000;
+        noteCount = currentNote;
     }
     else
     {
@@ -920,9 +962,9 @@ void loadChart(gameNote (&levelChart)[2000], Uint32 &musicStart)
     }
 }
 
-void loadLyrics(gameLyrics (&levelLyrics)[150])
+void loadLyrics(gameLyrics (&levelLyrics)[150], char* file)
 {
-    std::ifstream inFile("assets/LevelOne/Lyrics.txt");
+    std::ifstream inFile(file);
     int currentLyric = 0;
     if (inFile)
     {
@@ -959,8 +1001,8 @@ void loadLyrics(gameLyrics (&levelLyrics)[150])
     }
 }
 
-void notePressHandle(const int &lane, gameNote (&onScreenNotes)[50], Uint32 &score, int &numberOfOnScreenNotes,
-                     const int &keyRepeat, const int &keyState, const Uint32 &passedTime)
+void notePressHandle(const int &lane, gameNote (&onScreenNotes)[200], Uint32 &score, int &numberOfOnScreenNotes,
+                     const int &keyRepeat, const int &keyState, const Uint32 &passedTime, int &streak, const int &multiplier)
 {
     int closestNote = -1;
     for (int i = 0; i < numberOfOnScreenNotes; i++)
@@ -975,11 +1017,12 @@ void notePressHandle(const int &lane, gameNote (&onScreenNotes)[50], Uint32 &sco
     {
         if (keyState == SDL_KEYDOWN)
         {
-            if (onScreenNotes[closestNote].currentPosY + 24 <= 594 + 24 &&
-                    onScreenNotes[closestNote].currentPosY + 24 >= 594 - 24)
+            if (keyRepeat == 0)
             {
-                if (keyRepeat == 0)
+                if (onScreenNotes[closestNote].currentPosY <= 594 &&
+                    onScreenNotes[closestNote].currentPosY >= 594 - hitBox)
                 {
+                    onScreenNotes[closestNote].pressed = true;
                     if (!onScreenNotes[closestNote].isHeld)
                     {
                         for (int i = closestNote; i < numberOfOnScreenNotes; i++)
@@ -987,28 +1030,33 @@ void notePressHandle(const int &lane, gameNote (&onScreenNotes)[50], Uint32 &sco
                             onScreenNotes[i] = onScreenNotes[i + 1];
                         }
                         numberOfOnScreenNotes--;
-                        score += 50;
+                        score += 50 * multiplier;
                     }
                     else
                     {
-                        onScreenNotes[closestNote].pressed = true;
                         onScreenNotes[closestNote].heldStartTime = passedTime;
                     }
+                    streak++;
                 }
+                else streak = 0;
             }
         }
         else if (keyState == SDL_KEYUP && onScreenNotes[closestNote].pressed && !onScreenNotes[closestNote].released)
         {
             if (passedTime - onScreenNotes[closestNote].heldStartTime > onScreenNotes[closestNote].heldTime)
             {
-                score += onScreenNotes[closestNote].heldTime / 10;
+                score += onScreenNotes[closestNote].heldTime / 10 * multiplier;
             }
             else
             {
-                score += ( passedTime - onScreenNotes[closestNote].heldStartTime ) / 10;
+                score += ( passedTime - onScreenNotes[closestNote].heldStartTime ) / 10 * multiplier;
             }
             onScreenNotes[closestNote].released = true;
         }
+    }
+    else if (keyState == SDL_KEYDOWN)
+    {
+        streak = 0;
     }
 }
 
