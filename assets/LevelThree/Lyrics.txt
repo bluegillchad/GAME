@@ -1,0 +1,50 @@
+3600 1The weight of the world is resting on thin ice
+6200 1When the surface breaks, will I find paradise?
+9200 1As I freeze to death, left to reflect
+12300 1What a waste of time I was in retrospect
+16500 1I'd take a leap of faith, but I'd lose my nerve
+22000 1In the end, I'll get the hell that I deserve
+26500 1I'm always gone with the wind
+31500 1Crawling in and out of my mind
+36500 1God knows I lost all my faith
+42000 1A sickness with no remedy
+45500 1Except the ones inside of me
+51000 2You ever wonder how deep 
+you could sink into nothing at all?
+59000 1Disintegrate, annihilate me
+66000 1 
+70000 1Annihilate
+72000 1Do you remember when you said to me?
+75000 1"My friend, hope is a prison"
+78000 1 
+82500 1Hope is a prison
+85000 1BLEGH
+85500 1 
+91000 1Of all the patterns that I could create
+93500 1I built a labyrinth with no escape
+97000 1To keep myself under lock and key
+100000 1I am my own worst enemy
+104000 1I'd take a leap of faith, but I'd lose my nerve
+109000 1In the end, I'll get the hell that I deserve
+114000 1I'm always gone with the wind
+119000 1Crawling in and out of my mind
+124000 1God knows I lost all my faith
+129500 1A sickness with no remedy
+133000 1Except the ones inside of me
+138500 2You ever wonder how deep 
+you could sink into nothing at all?
+146500 1Disintegrate, annihilate me
+154000 1A sickness with no remedy
+157500 1Except the ones inside of me
+163500 2You ever wonder how deep 
+you could sink into nothing at all?
+171000 1Disintegrate, annihilate me
+179000 1If I could silence all the doubt in me
+182000 1Accept that what is meant to be 
+188000 2You ever wonder how deep 
+you could sink into nothing at all?
+196000 1Disintegrate, annihilate me
+202000 1 
+209000 1I remember when you said to me
+212000 1"My friend, hope is a prison"
+215000 1 
